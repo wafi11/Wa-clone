@@ -1,101 +1,74 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
-export const CreateReplyMessages = mutation({
+export const createReply = mutation({
   args: {
     messageId: v.id("messages"),
     content: v.string(),
-    sender: v.string(),
+    sender: v.id("users"),
+    conversation: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const { content, messageId, sender } = args;
+    const { content, conversation, messageId, sender } = args;
     const identity = await ctx.auth.getUserIdentity();
 
     if (!identity) {
       throw new ConvexError("Unauthorized");
     }
 
-    const originalMessage = await ctx.db
+    if (!content || !sender || !conversation || !messageId) {
+      throw new ConvexError("Message Aren't Valid");
+    }
+
+    const message = await ctx.db
       .query("messages")
       .filter((q) => q.eq(q.field("_id"), messageId))
-      .first();
-    if (!originalMessage) {
-      throw new ConvexError("Original message not found");
-    }
+      .unique();
 
-    await ctx.db.insert("replyMessages", {
+    const createMessages = await ctx.db.insert("messages", {
       content,
-      originalMessageId: messageId,
-      replyToMessageId: messageId,
+      conversation,
+      isReply: true,
+      replyTo: message?._id,
+      messageType: "text",
       sender,
-      read: false,
       delivered: false,
-      type: "text",
+      read: false,
     });
+
+    return createMessages;
   },
 });
 
-export const RepliesToReplChat = mutation({
+export const getReplaysData = query({
   args: {
-    repliesId: v.id("replyMessages"),
-    content: v.string(),
-    sender: v.string(),
+    messageId: v.id("messages"),
   },
   handler: async (ctx, args) => {
-    const { content, repliesId, sender } = args;
     const identity = await ctx.auth.getUserIdentity();
-
     if (!identity) {
       throw new ConvexError("Unauthorized");
     }
 
-    const originalReply = await ctx.db
-      .query("replyMessages")
-      .filter((q) => q.eq(q.field("_id"), repliesId))
-      .first();
-    if (!originalReply) {
-      throw new ConvexError("Reply message not found");
-    }
+    const { messageId } = args;
 
-    await ctx.db.insert("replyMessages", {
-      content,
-      originalMessageId: originalReply.originalMessageId,
-      replyToMessageId: repliesId,
-      sender,
-      read: false,
-      delivered: false,
-      type: "text",
-      parentReplyId: repliesId, // Link to the parent reply
-    });
-  },
-});
-
-export const GetRepliesForMessage = query({
-  args: {
-    originalMessageId: v.id("messages"),
-  },
-  handler: async (ctx, args) => {
-    const { originalMessageId } = args;
-
-    // Fetch the original message details
-    const originalMessage = await ctx.db
+    const messages = await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("_id"), originalMessageId))
+      .filter((q) => q.eq(q.field("replyTo"), messageId))
       .first();
 
-    if (!originalMessage) {
-      throw new ConvexError("Original message not found");
+    if (!messageId) {
+      throw new ConvexError("Message Aren't Valid");
     }
 
-    // Fetch replies and include the original message details
     const replies = await ctx.db
-      .query("replyMessages")
-      .filter((q) => q.eq(q.field("originalMessageId"), originalMessageId))
+      .query("messages")
+      .filter((q) => q.eq(q.field("isReply"), true))
       .collect();
 
     return {
-      originalMessage,
-      replies,
+      ...messages,
+      ...replies,
     };
   },
 });

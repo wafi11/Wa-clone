@@ -1,45 +1,29 @@
-import { MessageSeenSvg } from "@/hooks/lib/SVG";
-import {
-  IMessage,
-  RepliesData,
-  ReplyChat,
-  useConversationStore,
-} from "@/hooks/chat-store";
+import { IMessage, useConversationStore } from "@/hooks/chat-store";
 import ChatBubbleAvatar from "./ChatAvatar";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription } from "../../ui/dialog";
 import DateIndicator from "./DateIndicator";
 import ReactPlayer from "react-player";
 import MessageMoreButton from "./MessageMoreButton";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
-import MessageStatus from "@/hooks/lib/MessageStatus";
-import ReplyChats from "./replyChat";
+
 import { getTime } from "@/hooks/lib/utils";
+import MessageStatus from "@/hooks/lib/MessageStatus";
 
 type ChatBubbleProps = {
-  message: IMessage;
+  message: IMessage | any;
   me: any;
-  previousMessage?: IMessage;
+  previousMessage?: IMessage | any;
 };
 
 const ChatBubble = ({ me, message, previousMessage }: ChatBubbleProps) => {
   const time = getTime(message._creationTime);
-  const isReplyMessage = "originalMessageId" in message;
-  let originalMessage;
-
-  const replyData = useQuery(api.replyMessages.GetRepliesForMessage, {
-    originalMessageId: message._id as Id<"messages">,
-  });
   const { selectedConversation } = useConversationStore();
   const isMember =
     selectedConversation?.participants.includes(message.sender?._id) || false;
   const isGroup = selectedConversation?.isGroup;
   const fromMe = message.sender?._id === me._id;
   const bgClass = fromMe ? "bg-green-chat" : "bg-white dark:bg-gray-primary";
-
   const [open, setOpen] = useState(false);
 
   const renderMessageContent = () => {
@@ -57,47 +41,30 @@ const ChatBubble = ({ me, message, previousMessage }: ChatBubbleProps) => {
     }
   };
 
-  if (!fromMe) {
-    return (
-      <>
-        <DateIndicator message={message} previousMessage={previousMessage} />
-        <div className="flex gap-1 w-2/3">
+  return (
+    <>
+      <DateIndicator message={message} previousMessage={previousMessage} />
+      <div
+        className={`flex gap-4  w-fit max-w-[40%] ${fromMe ? "ml-auto" : ""} group cursor-pointer h-full `}
+      >
+        {!fromMe && (
           <ChatBubbleAvatar
             isGroup={isGroup}
             isMember={isMember}
             message={message}
           />
-          <div
-            className={`flex flex-col z-20 max-w-fit px-2 pt-1 rounded-md shadow-md relative ${bgClass}`}
-          >
-            {renderMessageContent()}
-            {open && (
-              <ImageDialog
-                src={message.content}
-                open={open}
-                onClose={() => setOpen(false)}
-              />
-            )}
-            <MessageTime
-              time={time}
-              fromMe={fromMe}
-              delivered={message.delivered}
-              read={message.read}
-            />
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <DateIndicator message={message} previousMessage={previousMessage} />
-      <div className="flex gap-1 w-full max-w-[40%] ml-auto relative group">
+        )}
         <div
-          className={`flex  z-20 max-w-fit px-2 pt-1 rounded-md shadow-md ml-auto relative ${bgClass}`}
+          className={`flex ${message.isReply && "flex-col"} w-fit gap-2 justify-between  px-4 py-2 rounded-md shadow-sm relative ${bgClass} ${fromMe ? "ml-auto" : ""}`}
         >
-          <SelfMessageIndicator />
+          {message.isReply && message.replyToMessage && (
+            <div className="relative  p-2 w-full bg-gray-300 border-l-4 border-green-500 rounded-md">
+              <p className="ml-4 text-gray-800">
+                {message.replyToMessage.content}
+              </p>
+            </div>
+          )}
+          {fromMe && <SelfMessageIndicator />}
           {renderMessageContent()}
           {open && (
             <ImageDialog
@@ -106,8 +73,15 @@ const ChatBubble = ({ me, message, previousMessage }: ChatBubbleProps) => {
               onClose={() => setOpen(false)}
             />
           )}
-          <div className="absolute top-0 right-0 invisible group-hover:visible">
-            <MessageMoreButton id={message._id} message={message} />
+          <div
+            className={`absolute top-0 ${fromMe ? "right-0" : "left-0"} invisible group-hover:visible`}
+          >
+            <MessageMoreButton
+              id={message._id}
+              message={message}
+              fromMe={fromMe}
+              storageId={message.storageId}
+            />
           </div>
           <MessageTime
             time={time}
@@ -117,12 +91,10 @@ const ChatBubble = ({ me, message, previousMessage }: ChatBubbleProps) => {
           />
         </div>
       </div>
-      {message._id === replyData?.originalMessage._id && (
-        <ReplyChats replyData={replyData} fromMe={fromMe} />
-      )}
     </>
   );
 };
+
 export default ChatBubble;
 
 const VideoMessage = ({ message }: { message: IMessage }) => {
@@ -199,12 +171,11 @@ const MessageTime = ({
   read: boolean;
 }) => {
   return (
-    <p className="text-[10px] mt-3 py-1 self-end flex gap-1 items-center">
+    <p className="text-[10px]   self-end flex gap-1 items-end">
       {time} {fromMe && <MessageStatus delivered={delivered} read={read} />}
     </p>
   );
 };
-
 const OtherMessageIndicator = () => (
   <div className="absolute bg-white dark:bg-gray-primary top-0 -left-[4px] w-3 h-3 rounded-bl-full" />
 );
@@ -228,7 +199,7 @@ const TextMessage = ({ message }: { message: IMessage }) => {
           {message.content}
         </a>
       ) : (
-        <p className={` text-sm font-light h-fit`}>{message.content}</p>
+        <p className={` text-sm font-light h-fit w-fit `}>{message.content}</p>
       )}
     </>
   );

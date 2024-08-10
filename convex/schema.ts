@@ -8,6 +8,7 @@ export default defineSchema({
     image: v.string(),
     tokenIdentifier: v.string(),
     isOnline: v.boolean(),
+    lastSeen: v.optional(v.number()),
   }).index("by_tokenIdentifier", ["tokenIdentifier"]),
 
   conversations: defineTable({
@@ -17,10 +18,12 @@ export default defineSchema({
     groupImage: v.optional(v.string()),
     admin: v.optional(v.id("users")),
   }),
-
   messages: defineTable({
     conversation: v.id("conversations"),
     sender: v.string(),
+    storageId: v.optional(v.id("_storage")),
+    isReply: v.boolean(),
+    replyTo: v.optional(v.id("messages")),
     delivered: v.boolean(),
     read: v.boolean(),
     delivered_At: v.optional(v.string()),
@@ -31,20 +34,24 @@ export default defineSchema({
       v.literal("image"),
       v.literal("video")
     ),
-  }).index("by_conversation", ["conversation"]),
-  replyMessages: defineTable({
-    originalMessageId: v.id("messages"),
-    replyToMessageId: v.union(v.id("messages"), v.id("replyMessages")),
-    parentReplyId: v.optional(v.id("replyMessages")), // This allows nesting replies
-    sender: v.string(),
-    delivered: v.boolean(),
-    read: v.boolean(),
-    delivered_At: v.optional(v.string()),
-    read_At: v.optional(v.string()),
-    type: v.union(v.literal("icon"), v.literal("text")),
-    content: v.string(),
   })
-    .index("by_originalMessageId", ["originalMessageId"])
-    .index("by_replyToMessageId", ["replyToMessageId"])
-    .index("by_parentReplyId", ["parentReplyId"]),
+    .index("by_conversation", ["conversation"])
+    .searchIndex("search_body", {
+      searchField: "content",
+      filterFields: ["content"],
+    }),
+  bookmarks: defineTable({
+    message: v.id("messages"),
+    userId: v.id("users"),
+    isBookmarks: v.boolean(),
+  })
+    .index("By_message", ["message"])
+    .index("By_user", ["userId"]),
+  favorite: defineTable({
+    message: v.id("messages"),
+    userId: v.id("users"),
+    isFavorite: v.boolean(),
+  })
+    .index("By_message", ["message"])
+    .index("By_user", ["userId"]),
 });

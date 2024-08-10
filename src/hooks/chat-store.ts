@@ -6,6 +6,7 @@ export type Conversation = {
   image?: string;
   participants: Id<"users">[];
   isGroup: boolean;
+  lastSeen: number;
   name?: string;
   groupImage?: string;
   groupName?: string;
@@ -30,10 +31,10 @@ type ReplyChatStore = {
   setSelectedMessages: (conversation: IMessage | null) => void;
   clearSelectedMessage: () => void; // Add the clearSelectedMessage method
 };
-type ReplyToReplyChatStore = {
-  selectedReply: ReplyChat | null;
-  setSelectedReply: (conversation: ReplyChat | null) => void;
-  clearSelectedReply: () => void; // Add the clearSelectedMessage method
+
+type Input = {
+  msg: string;
+  setMsg: (msg: string) => void;
 };
 
 export const useConversationStore = create<ConversationStore>((set) => ({
@@ -41,26 +42,30 @@ export const useConversationStore = create<ConversationStore>((set) => ({
   setSelectedConversation: (conversation) =>
     set({ selectedConversation: conversation }),
 }));
-export const useReplyChatStore = create<ReplyChatStore>((set) => ({
+export const useMessageStore = create<ReplyChatStore>((set) => ({
   selectedMessages: null,
-  setSelectedMessages: (conversation) =>
-    set({ selectedMessages: conversation }),
-  clearSelectedMessage: () => set({ selectedMessages: null }), // Implement the clearSelectedMessage method
+  setSelectedMessages: (selectedMessages) =>
+    set({ selectedMessages: selectedMessages }),
+  clearSelectedMessage: () => set({ selectedMessages: null }),
 }));
-export const useReplyToReplyStore = create<ReplyToReplyChatStore>((set) => ({
-  selectedReply: null,
-  setSelectedReply: (conversation) => set({ selectedReply: conversation }),
-  clearSelectedReply: () => set({ selectedReply: null }), // Implement the clearSelectedMessage method
+
+export const useInputStore = create<Input>((set) => ({
+  msg: "",
+  setMsg: (newMsg: string) => set({ msg: newMsg }),
 }));
 
 export interface IMessage {
   _id: Id<"messages">;
   content: string;
   _creationTime: number;
+  isReply: boolean;
+  replyTo?: string; // id of the message this one replies to, if any
+  forwardedFrom?: string;
   read: boolean;
   delivered: boolean;
   delivered_At?: string | undefined;
   read_At?: string | undefined;
+  replyToMessage?: IMessage;
   messageType: "text" | "image" | "video";
   sender: {
     _id: Id<"users">;
@@ -73,7 +78,7 @@ export interface IMessage {
   };
 }
 export interface User {
-  _id: Id<"users">;
+  _id: Id<"users"> | string;
   image: string;
   name?: string;
   tokenIdentifier: string;
@@ -94,18 +99,32 @@ export interface IMessages {
   messageType: "image" | "text" | "video";
 }
 
-export interface ReplyChat {
-  _id: Id<"replyMessages">;
-  _creationTime: number;
-  type: "text" | "icon";
-  sender: string;
-  content: string;
-  originalMessageId: Id<"messages">;
-  parentReplyId?: Id<"replyMessages">;
-  replyToMessageId: Id<"messages"> | Id<"replyMessages">;
-}
-
 export interface RepliesData {
   originalMessage: IMessages[];
-  replies: ReplyChat[];
+}
+
+type MessageType = "text" | "image" | "video"; // Example of possible message types
+
+interface SenderType {
+  email: string;
+  image: string;
+  isOnline: boolean;
+  lastSeen: number;
+  name: string;
+  tokenIdentifier: string;
+  _creationTime: number;
+  _id: string;
+}
+
+export interface Messagesss {
+  content: string;
+  conversation: string;
+  delivered: boolean;
+  delivered_At?: string;
+  isReply: boolean;
+  messageType: MessageType;
+  read: boolean;
+  sender: SenderType;
+  _creationTime: number;
+  _id: string;
 }

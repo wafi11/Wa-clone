@@ -19,9 +19,9 @@ const ChatBubbleAvatar = ({
       )}
       <AvatarImage
         src={message.sender?.image}
-        className="rounded-full object-cover w-8 h-8"
+        className="rounded-full object-cover size-8"
       />
-      <AvatarFallback className="w-8 h-8 ">
+      <AvatarFallback className="size-full ">
         <div className="animate-pulse bg-gray-tertiary rounded-full"></div>
       </AvatarFallback>
     </Avatar>

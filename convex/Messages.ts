@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 
 export const sendTextMessage = mutation({
   args: {
@@ -13,21 +14,22 @@ export const sendTextMessage = mutation({
       throw new ConvexError("Not authenticated");
     }
 
+    const conversation = await ctx.db
+      .query("conversations")
+      .filter((q) => q.eq(q.field("_id"), args.conversation))
+      .first();
+
     const user = await ctx.db
       .query("users")
       .withIndex("by_tokenIdentifier", (q) =>
         q.eq("tokenIdentifier", identity.tokenIdentifier)
       )
+      .filter((q) => q.and(q.eq(q.field("isOnline"), true)))
       .unique();
 
     if (!user) {
       throw new ConvexError("User not found");
     }
-
-    const conversation = await ctx.db
-      .query("conversations")
-      .filter((q) => q.eq(q.field("_id"), args.conversation))
-      .first();
 
     if (!conversation) {
       throw new ConvexError("Conversation not found");
@@ -42,6 +44,7 @@ export const sendTextMessage = mutation({
       content: args.content,
       conversation: args.conversation,
       messageType: "text",
+      isReply: false,
       delivered: false,
       read: false,
     });
@@ -80,8 +83,12 @@ export const getMessages = query({
             .first();
           userProfileCache.set(message.sender, sender);
         }
+        let replyToMessage = null;
+        if (message.replyTo) {
+          replyToMessage = await ctx.db.get(message.replyTo);
+        }
 
-        return { ...message, sender };
+        return { ...message, sender, replyToMessage };
       })
     );
 
@@ -108,6 +115,8 @@ export const sendImage = mutation({
       sender: args.sender,
       messageType: "image",
       conversation: args.conversation,
+      isReply: false,
+      storageId: args.imgId,
       delivered: false,
       read: false,
     });
@@ -131,11 +140,57 @@ export const sendVideo = mutation({
     await ctx.db.insert("messages", {
       content: content,
       sender: args.sender,
+      storageId: args.videoId,
       messageType: "video",
       conversation: args.conversation,
+      isReply: false,
       delivered: false,
       read: false,
     });
+  },
+});
+
+export const deleteMessages = mutation({
+  args: {
+    id: v.id("messages"),
+    storage_id: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Unauthorized");
+    }
+    await ctx.db.delete(args.id);
+    if (args.storage_id) {
+      await ctx.storage.delete(args.storage_id);
+    }
+  },
+});
+
+export const getMessageById = query({
+  args: {
+    messageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const message = await ctx.db
+      .query("messages")
+      .filter((q) => q.eq(q.field("_id"), args.messageId))
+      .unique();
+
+    if (!message) {
+      throw new ConvexError("Message not found");
+    }
+    const sender = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("_id"), message.sender))
+      .unique();
+
+    return { ...message, sender };
   },
 });
 
@@ -249,11 +304,10 @@ export const getMessageUnread = query({
 
 export const MarkRead = mutation({
   args: {
-    sender: v.id("users"),
     conversationid: v.id("conversations"),
   },
   handler: async (ctx, args) => {
-    const { conversationid, sender } = args;
+    const { conversationid } = args;
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       throw new ConvexError("Unauthorized");
@@ -263,11 +317,6 @@ export const MarkRead = mutation({
       .filter((q) => q.eq(q.field("conversation"), conversationid))
       .filter((q) => q.eq(q.field("read"), false))
       .collect();
-
-    if (!unreadMessages) {
-      console.warn("No unread messages found for this conversation.");
-      return;
-    }
 
     unreadMessages.map((message) =>
       ctx.db.patch(message._id, {
@@ -280,48 +329,47 @@ export const MarkRead = mutation({
   },
 });
 
-export const deleteMessages = mutation({
+export const AllMessages = query({
   args: {
-    id: v.id("messages"),
-    storage_id: v.optional(v.id("_storage")),
+    query: v.string(),
+    paginationOpts: paginationOptsValidator,
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Unauthorized");
-    }
-    await ctx.db.delete(args.id);
-    if (args.storage_id) {
-      await ctx.storage.delete(args.storage_id);
-    }
-  },
-});
-
-export const getMessageById = query({
-  args: {
-    messageId: v.id("messages"),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new ConvexError("Unauthorized");
-    }
-
-    const message = await ctx.db
+    const results = await ctx.db
       .query("messages")
-      .filter((q) => q.eq(q.field("_id"), args.messageId))
-      .unique();
+      .withSearchIndex("search_body", (q) => q.search("content", args.query))
+      .paginate(args.paginationOpts);
 
-    if (!message) {
-      throw new ConvexError("Message not found");
+    const userprofile = new Map();
+    const mappedPage = [];
+    for (const msg of results.page) {
+      let Sender;
+
+      if (userprofile.has(msg.sender)) {
+        Sender = userprofile.get(msg.sender);
+      } else {
+        Sender = await ctx.db
+          .query("users")
+          .filter((q) => q.eq(q.field("_id"), msg.sender))
+          .first();
+        if (Sender) {
+          userprofile.set(msg.sender, Sender);
+        }
+      }
+
+      if (Sender) {
+        mappedPage.push({
+          ...msg,
+          sender: Sender,
+        });
+      }
     }
 
-    // Fetch sender details
-    const sender = await ctx.db
-      .query("users")
-      .filter((q) => q.eq(q.field("_id"), message.sender))
-      .unique();
-
-    return { ...message, sender };
+    return {
+      ...results,
+      page: mappedPage,
+      continueCursor: results.continueCursor, // Ensure it's a string
+      nextCursor: results.continueCursor, // Use an empty string if results.continueCursor is undefined or null
+    };
   },
 });

@@ -1,29 +1,40 @@
-import { IMessage, useConversationStore } from "@/hooks/chat-store";
-import { useQuery } from "convex/react";
-import { Suspense, useEffect, useRef } from "react";
+import { useConversationStore } from "@/hooks/chat-store";
+import { useMutation, useQuery } from "convex/react";
+import { useEffect, useRef } from "react";
 import { api } from "../../../../convex/_generated/api";
 import ChatBubble from "./ChatBubble";
-import { Loader2 } from "lucide-react";
+import { Id } from "../../../../convex/_generated/dataModel";
+import { useToast } from "@/components/ui/use-toast";
 
-// Komponen untuk menampilkan pesan-pesan
 const MessageList = ({ conversationId }: { conversationId: any }) => {
+  const { toast } = useToast();
   const messages = useQuery(api.Messages.getMessages, {
     conversation: conversationId,
   });
   const me = useQuery(api.users.getMe);
-  const lastMessageRef = useRef<HTMLDivElement>(null);
-
+  const update = useMutation(api.Messages.MarkRead);
   useEffect(() => {
-    setTimeout(() => {
-      lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  }, [messages]);
+    const handleUpdateMessages = async (id: string) => {
+      if (me?._id! !== id) return;
+      try {
+        await update({
+          conversationid: conversationId,
+        });
+      } catch (error) {
+        toast({ description: "Internal Server Error" });
+      }
+    };
+    const interval = setInterval(() => {
+      handleUpdateMessages(me?._id!);
+    }, 5000);
 
-  if (!messages || !me) return null;
+    return () => clearInterval(interval); // membersihkan interval saat komponen di-unmount
+  }, []);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
 
   return (
     <>
-      {messages.map((msg, idx) => (
+      {messages?.map((msg, idx) => (
         <div
           key={msg._id}
           ref={idx === messages.length - 1 ? lastMessageRef : undefined}
@@ -39,18 +50,15 @@ const MessageList = ({ conversationId }: { conversationId: any }) => {
   );
 };
 
-// Komponen utama
-const MessageContainer = () => {
-  const { selectedConversation } = useConversationStore();
+interface Ids {
+  id?: Id<"conversations">;
+}
 
-  if (!selectedConversation) {
-    return <div>No conversation selected</div>;
-  }
-
+const MessageContainer = ({ id }: Ids) => {
   return (
     <div className="relative p-3 flex-1 overflow-auto h-full bg-chat-tile-light dark:bg-chat-tile-dark">
       <div className="mx-12 flex flex-col gap-3">
-        <MessageList conversationId={selectedConversation._id} />
+        <MessageList conversationId={id} />
       </div>
     </div>
   );

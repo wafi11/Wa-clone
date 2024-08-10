@@ -19,6 +19,7 @@ import { Footer } from "./Footer";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useConversationStore } from "@/hooks/chat-store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
 
 const UserListDialog = () => {
   const [selectedUsers, setSelectedUsers] = useState<Id<"users">[]>([]);
@@ -31,6 +32,7 @@ const UserListDialog = () => {
   const imgRef = useRef<HTMLInputElement>(null);
   const dialogCloseRef = useRef<HTMLButtonElement>(null);
   const users = useQuery(api.users.getUsers);
+  const { push } = useRouter();
 
   const createConversation = useMutation(api.conversations.createConversation);
   const generateUploadUrl = useMutation(api.conversations.generateUploadUrl);
@@ -75,22 +77,11 @@ const UserListDialog = () => {
       const conversationName = isGroup
         ? groupName
         : users?.find((user) => user._id === selectedUsers[0])?.name;
-
-      setSelectedConversation({
-        _id: conversationId,
-        participants: selectedUsers,
-        isGroup,
-        image: isGroup
-          ? renderedImage
-          : users?.find((user) => user._id === selectedUsers[0])?.image,
-        name: conversationName,
-        admin: me?._id!,
-      });
+      push(`?q=${conversationId}`);
     } catch (err) {
       toast({
         description: "Something Went Wrong",
       });
-      console.error(err);
     } finally {
       setIsLoading(false);
     }
@@ -115,7 +106,12 @@ const UserListDialog = () => {
     },
     [selectedUsers]
   );
-
+  const handleCancel = useCallback(() => {
+    setSelectedUsers([]);
+    setGroupName("");
+    setSelectedImage(null);
+    dialogCloseRef.current?.click(); // Close the dialog
+  }, [setSelectedUsers, setGroupName, setSelectedImage, dialogCloseRef]);
   return (
     <Dialog>
       <DialogTrigger>
@@ -196,6 +192,7 @@ const UserListDialog = () => {
           })}
         </div>
         <Footer
+          onCancel={handleCancel}
           onClick={handleCreateConversation}
           groupName={groupName}
           isLoading={isLoading}

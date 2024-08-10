@@ -1,53 +1,32 @@
 import { ImageIcon, Users, VideoIcon } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Conversation, useConversationStore } from "@/hooks/chat-store";
+import { useQuery } from "convex/react";
+import { useConversationStore } from "@/hooks/chat-store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { formatDate } from "@/hooks/lib/FormatDate";
+import { api } from "../../../../convex/_generated/api";
+import { useRouter } from "next/navigation";
 import MessageStatus from "@/hooks/lib/MessageStatus";
-import { useCallback } from "react";
 
 const Conversations = ({ conversation }: { conversation: any }) => {
   const conversationImage = conversation.groupImage || conversation.image;
   const conversationName = conversation.groupName || conversation.name;
   const lastMessage = conversation.lastMessage;
-  const lastMessageType = lastMessage?.messageType;
   const me = useQuery(api.users.getMe);
-  const updateMessages = useMutation(api.Messages.MarkRead);
   const unreadCount = useQuery(api.Messages.getMessageUnread, {
     conversationid: conversation._id,
     userId: me?._id!,
   });
-
-  const { setSelectedConversation, selectedConversation } =
-    useConversationStore();
+  const lastMessageType = lastMessage?.messageType;
+  const { selectedConversation } = useConversationStore();
   const activeBgClass = selectedConversation?._id === conversation._id;
-  const handleClick = useCallback(
-    async (conversation: Conversation) => {
-      setSelectedConversation(conversation);
-      if (selectedConversation?.participants.includes(me?._id!)) {
-        await updateMessages({
-          conversationid: conversation._id,
-          sender: me?._id!,
-        });
-      }
-    },
-    [
-      conversation._id,
-      me,
-      selectedConversation,
-      setSelectedConversation,
-      updateMessages,
-    ]
-  );
-
+  const { push } = useRouter();
   return (
     <>
       <div
         className={`flex gap-2 items-center p-3 hover:bg-chat-hover cursor-pointer
 					${activeBgClass ? "bg-gray-tertiary" : ""}
 				`}
-        onClick={() => handleClick(conversation)}
+        onClick={() => push(`/chat?q=${conversation._id}`)}
       >
         <Avatar className="border border-gray-900 overflow-visible relative">
           {conversation.isOnline && (
@@ -92,7 +71,7 @@ const Conversations = ({ conversation }: { conversation: any }) => {
             </span>
             {unreadCount && unreadCount > 0 && (
               <span className="mr-3 bg-green-500 w-5 h-5 rounded-full flex items-center justify-center text-white">
-                {unreadCount === 0 ? "" : unreadCount}
+                {unreadCount}
               </span>
             )}
           </p>

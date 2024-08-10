@@ -11,16 +11,19 @@ import { Crown } from "lucide-react";
 import { useQuery } from "convex/react";
 import { Conversation } from "@/hooks/chat-store";
 import { api } from "../../../../convex/_generated/api";
+import { Id } from "../../../../convex/_generated/dataModel";
 
 type GroupMembersDialogProps = {
-  selectedConversation: Conversation;
+  selectedConversation?: Conversation;
+  ids?: Id<"conversations">;
 };
 
 const GroupMembersDialog = ({
   selectedConversation,
+  ids,
 }: GroupMembersDialogProps) => {
   const users = useQuery(api.users.getGroupMembers, {
-    conversationId: selectedConversation._id,
+    conversationId: selectedConversation?._id! || ids!,
   });
   return (
     <Dialog>
@@ -55,7 +58,7 @@ const GroupMembersDialog = ({
                       <h3 className="text-md font-medium">
                         {user.name || user.email.split("@")[0]}
                       </h3>
-                      {user._id === selectedConversation.admin && (
+                      {user._id === selectedConversation?.admin && (
                         <Crown size={16} className="text-yellow-400" />
                       )}
                     </div>

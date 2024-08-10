@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, query } from "./_generated/server";
-import { updateReceivedMessages } from "./Messages";
+import { api, internal } from "./_generated/api";
 
 export const createUser = internalMutation({
   args: {
@@ -69,8 +69,8 @@ export const setUserOffline = internalMutation({
     if (!user) {
       throw new ConvexError("User Not found");
     }
-
-    await ctx.db.patch(user._id, { isOnline: false });
+    const currentTime = Math.floor(Date.now() / 1000);
+    await ctx.db.patch(user._id, { isOnline: false, lastSeen: currentTime });
   },
 });
 
@@ -84,6 +84,28 @@ export const getUsers = query({
 
     const users = await ctx.db.query("users").collect();
     return users;
+  },
+});
+export const getUsersById = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("_id"), args.userId))
+      .first(); // Assuming user IDs are unique, you can use unique() to get a single user
+
+    if (!user) {
+      throw new ConvexError("User not found");
+    }
+
+    return user;
   },
 });
 

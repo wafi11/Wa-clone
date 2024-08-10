@@ -1,7 +1,6 @@
 "use client";
 import ThemeSwitch from "@/components/ui/ToogleTheme";
 import { UserButton } from "@clerk/nextjs";
-import { LogOut } from "lucide-react";
 import UserListDialog from "../_components/userListDialog";
 import { useConvexAuth } from "convex/react";
 
@@ -14,7 +13,6 @@ export default function HeaderLeftSide() {
       <div className="flex items-center gap-3">
         {isAuthenticated && <UserListDialog />}
         <ThemeSwitch />
-        <LogOut size={20} className="cursor-pointer" />
       </div>
     </div>
   );
