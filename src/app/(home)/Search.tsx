@@ -38,11 +38,13 @@ export default function SearchPage({ q }: Props) {
             </Avatar>
             <div className="flex flex-col">
               <p>{conversationName}</p>
-              <p className="text-[14px] text-gray-500 ">
+              <p className="text-[14px] text-gray-500">
                 {!data?.isGroup &&
                   (data?.receiver?.isOnline
                     ? "online"
-                    : `last seen ${formatDate(data?.receiver?._creationTime!)}`)}
+                    : data?.receiver?._creationTime
+                      ? `last seen ${formatDate(data?.receiver?._creationTime)}`
+                      : "...")}
               </p>
               {data?.isGroup && <GroupMembersDialog ids={data._id} />}
             </div>

@@ -100,7 +100,7 @@ const MessageInput = ({ id }: Ids) => {
             )}
             <Laugh className="text-gray-600 dark:text-gray-400" />
           </div>
-          <MediaDropdown />
+          <MediaDropdown id={id!} />
         </div>
         <form onSubmit={handleSubmit} className="w-full flex gap-3">
           <div className="flex-1">

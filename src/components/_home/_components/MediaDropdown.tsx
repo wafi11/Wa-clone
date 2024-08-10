@@ -16,25 +16,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Id } from "../../../../convex/_generated/dataModel";
 
-const MediaDropdown = () => {
+const MediaDropdown = ({ id }: { id: Id<"conversations"> }) => {
   const imageInput = useRef<HTMLInputElement>(null);
   const videoInput = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-
   const generateUploadUrl = useMutation(api.conversations.generateUploadUrl);
   const sendImage = useMutation(api.Messages.sendImage);
   const sendVideo = useMutation(api.Messages.sendVideo);
   const me = useQuery(api.users.getMe);
-
-  const { selectedConversation } = useConversationStore();
-
   const handleSendImage = async () => {
     setIsLoading(true);
     try {
@@ -47,7 +43,7 @@ const MediaDropdown = () => {
 
       const { storageId } = await result.json();
       await sendImage({
-        conversation: selectedConversation!._id,
+        conversation: id,
         imgId: storageId,
         sender: me!._id,
       });
@@ -76,7 +72,7 @@ const MediaDropdown = () => {
 
       await sendVideo({
         videoId: storageId,
-        conversation: selectedConversation!._id,
+        conversation: id,
         sender: me!._id,
       });
 

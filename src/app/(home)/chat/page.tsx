@@ -28,7 +28,7 @@ export default function Home({ searchParams }: HomeProps) {
   };
   useEffect(() => {
     handleUpdateMessages();
-    const intervalId = setInterval(() => handleUpdateMessages(), 60000);
+    const intervalId = setInterval(() => handleUpdateMessages(), 6000);
     return () => clearInterval(intervalId);
   }, []);
 

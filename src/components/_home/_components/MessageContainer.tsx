@@ -14,8 +14,7 @@ const MessageList = ({ conversationId }: { conversationId: any }) => {
   const me = useQuery(api.users.getMe);
   const update = useMutation(api.Messages.MarkRead);
   useEffect(() => {
-    const handleUpdateMessages = async (id: string) => {
-      if (me?._id! !== id) return;
+    const handleUpdateMessages = async () => {
       try {
         await update({
           conversationid: conversationId,
@@ -25,10 +24,10 @@ const MessageList = ({ conversationId }: { conversationId: any }) => {
       }
     };
     const interval = setInterval(() => {
-      handleUpdateMessages(me?._id!);
+      handleUpdateMessages();
     }, 5000);
 
-    return () => clearInterval(interval); // membersihkan interval saat komponen di-unmount
+    return () => clearInterval(interval);
   }, []);
   const lastMessageRef = useRef<HTMLDivElement>(null);
 

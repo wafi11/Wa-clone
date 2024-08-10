@@ -69,7 +69,7 @@ const Conversations = ({ conversation }: { conversation: any }) => {
               {lastMessageType === "image" && <ImageIcon size={16} />}
               {lastMessageType === "video" && <VideoIcon size={16} />}
             </span>
-            {unreadCount && unreadCount > 0 && (
+            {unreadCount && (
               <span className="mr-3 bg-green-500 w-5 h-5 rounded-full flex items-center justify-center text-white">
                 {unreadCount}
               </span>

@@ -312,18 +312,26 @@ export const MarkRead = mutation({
     if (!identity) {
       throw new ConvexError("Unauthorized");
     }
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier)
+      )
+      .filter((q) => q.and(q.eq(q.field("isOnline"), true)))
+      .unique();
     const unreadMessages = await ctx.db
       .query("messages")
       .filter((q) => q.eq(q.field("conversation"), conversationid))
       .filter((q) => q.eq(q.field("read"), false))
       .collect();
 
-    unreadMessages.map((message) =>
+    unreadMessages.map((message) => {
+      if (message.sender === user?._id) return;
       ctx.db.patch(message._id, {
         read: true,
         read_At: new Date().toISOString(),
-      })
-    );
+      });
+    });
 
     return unreadMessages;
   },
